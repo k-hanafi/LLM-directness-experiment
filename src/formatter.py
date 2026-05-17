@@ -14,7 +14,9 @@ the description / keywords / year fields.
 The address line concatenates address + city + state_code + postal_code.
 Empty components are dropped. The descriptions/keywords/year cells fall
 back to '[not available]' if the underlying CSV cell is empty so the
-field structure stays uniform across rows.
+field structure stays uniform across rows. Baseline year may be
+``founded_month_year`` (``Mon YYYY`` from the master CSV) or legacy
+``year_founded`` / ``founded_date``.
 """
 
 from __future__ import annotations
@@ -76,8 +78,8 @@ def _short_desc(row: dict[str, Any]) -> str:
 
 
 def _long_desc(row: dict[str, Any]) -> str:
-    """Read long description, accepting both naming conventions used in the dataset."""
-    for key in ("Long description", "long_description", "description"):
+    """Read long description; prefers master ``long_description``, then Khaled aliases."""
+    for key in ("long_description", "Long description", "description"):
         v = _clean(row.get(key, ""))
         if v:
             return v
@@ -85,7 +87,14 @@ def _long_desc(row: dict[str, Any]) -> str:
 
 
 def _year_founded(row: dict[str, Any]) -> str:
-    """Year founded; tries year_founded column first, falls back to founded_date."""
+    """Value for ``YearFounded:`` line.
+
+    Prefers ``founded_month_year`` from the master CSV (``Mon YYYY``). Otherwise
+    uses legacy ``year_founded`` / ``founded_date`` so raw Khaled rows still work.
+    """
+    canonical = _clean(row.get("founded_month_year", ""))
+    if canonical:
+        return canonical
     direct = _clean(row.get("year_founded", ""))
     if direct.isdigit() and 1900 <= int(direct) <= 2100:
         return direct

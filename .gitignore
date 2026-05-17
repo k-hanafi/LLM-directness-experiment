@@ -1,7 +1,4 @@
-# README omitted until draft is ready for publication (remove this line to commit)
-README.md
-
-# Data (symlinked from parent repo or imported via scripts/import_baseline.py)
+# Data (symlink master from build output, or symlink Khaled from parent repo)
 data/
 keys/
 

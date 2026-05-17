@@ -43,7 +43,7 @@ from src.context import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DATA_CSV = project_root() / "data" / "company_us_all_var_Khaled.csv"
+DEFAULT_DATA_CSV = project_root() / "data" / "master_csv_directness_experiment.csv"
 
 
 def _resolve_data(args: argparse.Namespace) -> Path:
@@ -100,6 +100,7 @@ def _cmd_prepare(args: argparse.Namespace) -> None:
     )
 
     state = PipelineState.load()
+    state.batches = {}
     state.run_id = ""
     state.model = args.model
     state.arm = args.arm
@@ -271,7 +272,7 @@ def _cmd_merge(args: argparse.Namespace) -> None:
 def _cmd_test(args: argparse.Namespace) -> None:
     """Classify one company synchronously via the Responses API (flex tier when available)."""
     from src.builder import _openai_strict_schema, load_system_prompt, responses_text_format_json_schema
-    from src.config import MAX_OUTPUT_TOKENS, PROMPT_CACHE_KEY
+    from src.openai_config import MAX_OUTPUT_TOKENS, PROMPT_CACHE_KEY
     from src.formatter import format_user_message
     from src.logger import setup_logging
     from src.submitter import get_client
@@ -392,7 +393,7 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--data", default=None,
-        help="Path to input CSV (default: data/company_us_all_var_Khaled.csv)",
+        help="Path to input CSV (default: data/master_csv_directness_experiment.csv)",
     )
 
 

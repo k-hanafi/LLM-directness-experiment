@@ -73,6 +73,49 @@ class TestBaselineMissingFields:
         msg = format_user_message(row, arm="baseline")
         assert "Long Description: Alternative long description column" in msg
 
+    def test_long_description_master_column(self):
+        row = {**_SAMPLE_ROW}
+        row.pop("description")
+        row["long_description"] = "Coalesced long text from master CSV"
+        msg = format_user_message(row, arm="baseline")
+        assert "Long Description: Coalesced long text from master CSV" in msg
+
+    def test_long_description_prefers_master_column_over_description(self):
+        row = {**_SAMPLE_ROW, "long_description": "Master wins"}
+        msg = format_user_message(row, arm="baseline")
+        assert "Long Description: Master wins" in msg
+
+    def test_founded_month_year_from_master_csv(self):
+        row = {**_SAMPLE_ROW}
+        row.pop("founded_date", None)
+        row.pop("year_founded", None)
+        row["founded_month_year"] = "Nov 2016"
+        msg = format_user_message(row, arm="baseline")
+        assert "YearFounded: Nov 2016" in msg
+
+
+class TestMasterCsvColumnSet:
+    """Rows shaped like ``master_csv_directness_experiment.csv`` (no legacy founding keys)."""
+
+    def test_baseline_full_message_with_master_columns_only(self):
+        row = {
+            "org_uuid": "org-1",
+            "name": "Acme",
+            "address": "1 Rd",
+            "city": "Austin",
+            "state_code": "TX",
+            "postal_code": "78701",
+            "short_description": "Widgets",
+            "long_description": "A long narrative.",
+            "category_list": "Hardware",
+            "category_groups_list": "Manufacturing",
+            "founded_month_year": "Mar 2021",
+        }
+        msg = format_user_message(row, arm="baseline")
+        assert "YearFounded: Mar 2021" in msg
+        assert "Long Description: A long narrative." in msg
+        assert "Keywords: Hardware, Manufacturing" in msg
+
 
 class TestFieldOrderConsistency:
     """All three arms must emit the same line ordering so the prompt's

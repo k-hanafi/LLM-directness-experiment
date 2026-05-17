@@ -11,8 +11,8 @@ Output:
   outputs/analysis/fame_quartiles.csv          (org_uuid, fame_score, fame_quartile)
   outputs/analysis/fame_diagnostics.json       (face-validity sample, weights, scaler params)
 
-Run once after scripts/import_baseline.py and before
-scripts/analyze_directness.py.
+Run once after ``scripts/build_master_directness_csv.py`` (or with a compatible
+CSV) and before ``scripts/analyze_directness.py``.
 
 Usage:
     python scripts/compute_fame_proxy.py
@@ -29,7 +29,7 @@ import numpy as np
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DATA = PROJECT_ROOT / "data" / "company_us_all_var_Khaled.csv"
+DEFAULT_DATA = PROJECT_ROOT / "data" / "master_csv_directness_experiment.csv"
 ANALYSIS_DIR = PROJECT_ROOT / "outputs" / "analysis"
 QUARTILES_OUT = ANALYSIS_DIR / "fame_quartiles.csv"
 DIAGNOSTICS_OUT = ANALYSIS_DIR / "fame_diagnostics.json"
