@@ -1,6 +1,6 @@
 """Output schema for the v2 two-axis startup classifier.
 
-ClassificationResult is the single source of truth for the 11-field output.
+ClassificationResult is the single source of truth for the 12-field output.
 It auto-generates the JSON schema injected into every batch request body via
 model_json_schema(), eliminating any risk of the Python types and API schema
 diverging.
@@ -22,7 +22,7 @@ class ClassificationResult(BaseModel):
     )
     subclass: Literal[
         "1A", "1B", "1C", "1D", "1E", "1F", "1G",
-        "0A", "0B", "0E",
+        "0A", "0B", "0C", "0",
     ] = Field(description="Sub-genre within the ai_native dimension.")
     rad_score: Literal["RAD-H", "RAD-M", "RAD-L", "RAD-NA"] = Field(
         description=(
@@ -31,7 +31,10 @@ class ClassificationResult(BaseModel):
         )
     )
     cohort: Literal["PRE-GENAI", "GENAI-ERA"] = Field(
-        description="PRE-GENAI if founded before 2023, GENAI-ERA if 2023 or later."
+        description=(
+            "PRE-GENAI if founded before March 2023; GENAI-ERA if founded "
+            "in March 2023 or later, using GPT-4's release as the inflection point."
+        )
     )
 
     conf_classification: int = Field(
@@ -56,9 +59,17 @@ class ClassificationResult(BaseModel):
     )
     verification_critique: str = Field(
         description=(
-            "≤40-word self-critique identifying the single biggest uncertainty. "
+            "≤35-word self-critique identifying the single biggest uncertainty. "
             "Flag UNCERTAIN if confidence on either axis is 1 or 2."
         )
+    )
+
+    pretraining_inferred_description: Optional[str] = Field(
+        description=(
+            "In 50 words or fewer, summarize what you know about this company "
+            "from your training data. null when real descriptions are provided "
+            "in the input (baseline arm)."
+        ),
     )
 
     @field_validator("conf_classification")
