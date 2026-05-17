@@ -50,11 +50,12 @@ BASELINE_PATH = PROJECT_ROOT / "outputs" / "baseline" / "classified_baseline.csv
 ARM_A_PATH = PROJECT_ROOT / "outputs" / "arm_a" / "classified_arm_a.csv"
 ARM_B_PATH = PROJECT_ROOT / "outputs" / "arm_b" / "classified_arm_b.csv"
 FAME_PATH = ANALYSIS_DIR / "fame_quartiles.csv"
+MASTER_PATH = PROJECT_ROOT / "data" / "master_csv_directness_experiment.csv"
 
 AXES = {
     "ai_native": {"labels": [0, 1], "type": "binary"},
     "subclass": {
-        "labels": ["1A", "1B", "1C", "1D", "1E", "1F", "1G", "0A", "0B", "0E"],
+        "labels": ["1A", "1B", "1C", "1D", "1E", "1F", "1G", "0A", "0B", "0C", "0"],
         "type": "multi",
     },
     "rad_score": {"labels": ["RAD-H", "RAD-M", "RAD-L", "RAD-NA"], "type": "multi"},
@@ -167,15 +168,79 @@ def _confusion_csv(y1: pd.Series, y2: pd.Series, axis: str, name: str) -> Path:
     return out
 
 
+def _count_csv_rows(path: Path) -> int | None:
+    if not path.exists():
+        return None
+    return int(len(pd.read_csv(path)))
+
+
+def _data_caveat() -> dict | None:
+    if not MASTER_PATH.exists():
+        return None
+    col = pd.read_csv(MASTER_PATH, usecols=["long_description"])
+    nonempty = col["long_description"].fillna("").astype(str).str.strip()
+    nonempty = nonempty.mask(nonempty.str.lower().isin(["", "nan", "none", "nat"]))
+    pct = round(100.0 * (nonempty != "").mean(), 2)
+    return {"long_description_nonempty_pct": pct}
+
+
+def _build_coverage(n_joined: int) -> dict:
+    return {
+        "n_master": _count_csv_rows(MASTER_PATH),
+        "n_baseline": _count_csv_rows(BASELINE_PATH),
+        "n_arm_a": _count_csv_rows(ARM_A_PATH),
+        "n_arm_b": _count_csv_rows(ARM_B_PATH),
+        "n_joined": n_joined,
+    }
+
+
+def _build_headlines(global_metrics: dict, strata_rows: list[dict]) -> dict:
+    ba = global_metrics.get("ai_native", {}).get("baseline__vs__arm_a", {})
+    fame_ab = {
+        r["stratum_value"]: r
+        for r in strata_rows
+        if r.get("stratum") == "fame_quartile"
+        and r.get("axis") == "ai_native"
+        and r.get("pair") == "arm_a__vs__arm_b"
+    }
+    q1 = fame_ab.get("Q1", {})
+    q4 = fame_ab.get("Q4", {})
+    kappa_q1 = q1.get("kappa")
+    kappa_q4 = q4.get("kappa")
+    delta: float | None = None
+    if kappa_q1 is not None and kappa_q4 is not None:
+        delta = round(float(kappa_q4) - float(kappa_q1), 4)
+    return {
+        "ai_native_baseline_vs_arm_a_global": {
+            "kappa": ba.get("kappa"),
+            "agreement": ba.get("agreement"),
+            "n": ba.get("n"),
+        },
+        "ai_native_arm_a_vs_arm_b_fame": {
+            "Q1": {
+                "kappa": q1.get("kappa"),
+                "agreement": q1.get("agreement"),
+                "n": q1.get("n"),
+            },
+            "Q4": {
+                "kappa": q4.get("kappa"),
+                "agreement": q4.get("agreement"),
+                "n": q4.get("n"),
+            },
+            "kappa_delta_q4_minus_q1": delta,
+        },
+    }
+
+
 def _fallback_rate(df: pd.DataFrame, suffix: str) -> float:
     """Fraction of rows where source *suffix* returned the bulk fallback."""
     if f"reasons_3_points__{suffix}" not in df.columns:
         return float("nan")
-    is_zero_a = df.get(f"subclass__{suffix}") == "0A"
+    is_zero = df.get(f"subclass__{suffix}") == "0"
     is_fallback_text = df[f"reasons_3_points__{suffix}"].astype(str).str.contains(
         "Insufficient information", na=False, regex=False,
     )
-    return float((is_zero_a & is_fallback_text).mean())
+    return float((is_zero & is_fallback_text).mean())
 
 
 def main() -> None:
@@ -250,6 +315,12 @@ def main() -> None:
     fame_rows = [r for r in strata_rows if r["stratum"] == "fame_quartile"]
     pd.DataFrame(fame_rows).to_csv(ANALYSIS_DIR / "kappa_by_fame_quartile.csv", index=False)
 
+    summary["coverage"] = _build_coverage(int(len(df)))
+    caveat = _data_caveat()
+    if caveat is not None:
+        summary["data_caveat"] = caveat
+    summary["headlines"] = _build_headlines(summary["global"], strata_rows)
+
     out = ANALYSIS_DIR / "directness_metrics.json"
     out.write_text(json.dumps(summary, indent=2, default=str))
     print(f"Wrote {out}")
@@ -257,17 +328,32 @@ def main() -> None:
     print(f"Wrote {ANALYSIS_DIR / 'fallback_rates.csv'}")
     print(f"Wrote {ANALYSIS_DIR / 'kappa_by_fame_quartile.csv'}")
     print()
-    print("HEADLINE: global kappa, baseline vs arm_a:")
-    for axis in AXES:
-        m = summary["global"].get(axis, {}).get("baseline__vs__arm_a", {})
-        print(f"  {axis:12s}  kappa={m.get('kappa')}  agreement={m.get('agreement')}  n={m.get('n')}")
+    cov = summary["coverage"]
+    print("Coverage (row counts):")
+    for key in ("n_master", "n_baseline", "n_arm_a", "n_arm_b", "n_joined"):
+        val = cov.get(key)
+        label = key.replace("n_", "")
+        if val is None:
+            print(f"  {label:12s}  n/a")
+        else:
+            print(f"  {label:12s}  {val:,}")
+    if caveat is not None:
+        print(
+            f"  long_description nonempty: {caveat['long_description_nonempty_pct']:.2f}%"
+        )
     print()
-    print("HEADLINE: global kappa, arm_a vs arm_b (isolates name identity):")
-    for axis in AXES:
-        m = summary["global"].get(axis, {}).get("arm_a__vs__arm_b", {})
-        print(f"  {axis:12s}  kappa={m.get('kappa')}  agreement={m.get('agreement')}  n={m.get('n')}")
+    hl = summary["headlines"]
+    ba = hl["ai_native_baseline_vs_arm_a_global"]
+    print("HEADLINE ai_native baseline vs arm_a (global):")
+    print(f"  kappa={ba.get('kappa')}  agreement={ba.get('agreement')}  n={ba.get('n')}")
+    ab = hl["ai_native_arm_a_vs_arm_b_fame"]
+    print("HEADLINE ai_native arm_a vs arm_b by fame quartile:")
+    for q in ("Q1", "Q4"):
+        m = ab[q]
+        print(f"  {q}  kappa={m.get('kappa')}  agreement={m.get('agreement')}  n={m.get('n')}")
+    print(f"  kappa delta (Q4 - Q1) = {ab.get('kappa_delta_q4_minus_q1')}")
     print()
-    print("Fallback rate (subclass=0A AND 'Insufficient information' in reasons):")
+    print("Fallback rate (subclass=0 AND 'Insufficient information' in reasons):")
     for arm, rate in summary["fallback_rates_by_arm"].items():
         print(f"  {arm:12s}  {rate:.3%}" if not np.isnan(rate) else f"  {arm:12s}  n/a")
 
