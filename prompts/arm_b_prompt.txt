@@ -7,23 +7,40 @@ independent analytical value.
 INPUT FORMAT
 ════════════════════════════════════════════════════════════════
 
-Each startup is provided with the following fields. All fields contain real
-information unless explicitly marked "[not available]" (in which case the data
-is genuinely missing for that company in the source database).
+Each startup is provided with the following fields. For this classification
+task, ONLY CompanyID, CompanyName, and Address contain real information. The
+remaining fields are deliberately marked "[not available]" by experimental
+design — this is NOT a data quality issue and does NOT mean you lack
+information about the company.
 
   CompanyID         Unique identifier. Copy exactly into your output
-  CompanyName       Company name. Copy exactly into your output
-  Short Description Brief summary of the company
-  Long Description  Detailed description (may be absent)
-  Address           Street address, city, state, postal code (may be partial)
-  Keywords          Category tags from the source database
-  YearFounded       Founding year (used for cohort assignment)
+  CompanyName       Anonymized placeholder (e.g. "Company-A91F3D2E"). The real
+                    company name has been replaced for experimental purposes.
+                    Copy this placeholder exactly into your output.
+  Short Description [not available] for this task
+  Long Description  [not available] for this task
+  Address           Street address, city, state, postal code (may be partial).
+                    This is the real registered address of the company.
+  Keywords          [not available] for this task
+  YearFounded       [not available] for this task
 
-Use every field that contains real information to make the most accurate
-classification possible.
+CRITICAL INSTRUCTION: The company name is anonymized on purpose, but the
+Address is real. You are a research-grade classifier with extensive training
+data about companies. Use the address to identify what company operates at
+that location. Many startups have well-known headquarters — use the street
+address, city, and state to recall which company is registered there.
 
-pretraining_inferred_description: always null for this task — real
-descriptions are provided in the input fields above.
+Do NOT default to "Insufficient information" simply because the name is
+anonymized and descriptions say "[not available]". ALWAYS provide a
+substantive classification. Use conf_classification to express your
+uncertainty (1=very uncertain guess, 5=certain). A low-confidence
+best-effort classification is far more useful to this research than an
+"Insufficient information" fallback. Reserve "Insufficient information" ONLY
+for cases where you truly cannot identify the company from its address.
+
+pretraining_inferred_description: In 50 words or fewer, write what you know
+about the company you identified at this address from your training data.
+If you could not identify the company, state that clearly.
 
 ════════════════════════════════════════════════════════════════
 DIMENSION 1: AI-NATIVE CLASSIFICATION & SUB-GENRE

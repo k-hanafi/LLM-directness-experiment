@@ -4,16 +4,15 @@ Each JSONL line is a complete OpenAI **Responses API** request (`POST /v1/respon
 with an identical prefix (instructions + JSON schema + prompt_cache_key) and one
 variable user string produced by the arm-aware formatter.
 
-Two prompt files live in prompts/:
+Three prompt files live in prompts/:
   - baseline_prompt.txt          used by --arm baseline (full inputs)
-  - arms_a_b_prompt.txt          used by --arm a and --arm b (minimal inputs)
+  - arm_a_prompt.txt             used by --arm a (name + address, training-data recall)
+  - arm_b_prompt.txt             used by --arm b (anonymized name, address-based ID)
 
-Both prompt files share their entire body (taxonomy, RAD rules, cohort rules,
-analytical scoring criteria, edge cases, and few-shot examples). They differ
-only in the INPUT FORMAT block, which describes which fields contain real
-information vs which are marked '[not available]'. This is the only
-experimentally-varied factor between the baseline and the minimal arms;
-the test in tests/test_prompt_consistency.py enforces this invariant.
+All three prompt files share their entire body (taxonomy, RAD rules, cohort
+rules, analytical scoring criteria, edge cases, and few-shot examples). They
+differ only in the INPUT FORMAT block. The test in
+tests/test_prompt_consistency.py enforces this invariant.
 """
 
 from __future__ import annotations
@@ -27,6 +26,7 @@ import pandas as pd
 from src.openai_config import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_MODEL,
+    MAX_BATCH_FILE_BYTES,
     MAX_FILE_SIZE_MB,
     MAX_OUTPUT_TOKENS,
     PROMPT_CACHE_KEY,
@@ -40,11 +40,14 @@ logger = logging.getLogger(__name__)
 
 def prompt_path_for_arm(arm: str) -> Path:
     """Return the system-prompt file path used by the given arm."""
-    if arm == "baseline":
-        return project_root() / "prompts" / "baseline_prompt.txt"
-    if arm in ("a", "b"):
-        return project_root() / "prompts" / "arms_a_b_prompt.txt"
-    raise ValueError(f"Invalid arm: {arm!r}")
+    mapping = {
+        "baseline": "baseline_prompt.txt",
+        "a": "arm_a_prompt.txt",
+        "b": "arm_b_prompt.txt",
+    }
+    if arm not in mapping:
+        raise ValueError(f"Invalid arm: {arm!r}")
+    return project_root() / "prompts" / mapping[arm]
 
 
 def load_system_prompt(arm: str) -> str:
@@ -137,7 +140,7 @@ def build_batch_files(
     system_prompt = load_system_prompt(arm)
     schema = _openai_strict_schema()
     written_files: list[Path] = []
-    max_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
+    max_bytes = min(MAX_FILE_SIZE_MB * 1024 * 1024, MAX_BATCH_FILE_BYTES)
 
     for batch_start in range(0, len(df), batch_size):
         batch_df = df.iloc[batch_start : batch_start + batch_size]
@@ -154,9 +157,10 @@ def build_batch_files(
 
         file_size = file_path.stat().st_size
         if file_size > max_bytes:
-            logger.warning(
-                "%s is %.1f MB (limit %d MB). Reduce batch_size.",
-                file_path.name, file_size / 1024 / 1024, MAX_FILE_SIZE_MB,
+            raise ValueError(
+                f"{file_path.name} is {file_size / 1024 / 1024:.1f} MB "
+                f"(limit {max_bytes / 1024 / 1024:.1f} MB). "
+                "Reduce --batch-size and re-run prepare."
             )
 
         written_files.append(file_path)
