@@ -40,7 +40,9 @@ MAX_TOKENS_PER_MINUTE: int = 180_000_000
 MAX_BATCH_QUEUE_TOKENS: int = 15_000_000_000
 MAX_REQUESTS_PER_BATCH: int = 50_000
 BATCH_CREATION_PER_HOUR: int = 2_000
-MAX_FILE_SIZE_MB: int = 190
+# OpenAI hard limit is 200 MiB (209_715_200 bytes) per batch input file.
+MAX_BATCH_FILE_BYTES: int = 209_715_200
+MAX_FILE_SIZE_MB: int = 199
 
 # ---------------------------------------------------------------------------
 # Per-request budget
@@ -48,10 +50,12 @@ MAX_FILE_SIZE_MB: int = 190
 
 ESTIMATED_TOKENS_PER_REQUEST: int = 7_500
 
-MAX_OUTPUT_TOKENS: int = 450
+MAX_OUTPUT_TOKENS: int = 800
 
 # ---------------------------------------------------------------------------
 # Batch construction defaults
 # ---------------------------------------------------------------------------
 
-DEFAULT_BATCH_SIZE: int = 5_000
+# Calibrated from baseline prepare: 5,000 rows can exceed 200 MiB with full
+# Crunchbase fields plus the shared system prompt in every JSONL line.
+DEFAULT_BATCH_SIZE: int = 4_700

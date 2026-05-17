@@ -58,20 +58,25 @@ def arm_dir() -> Path:
     return _PROJECT_ROOT / "outputs" / _arm_dir_name(active_arm())
 
 
+def batchfiles_dir() -> Path:
+    """All batch processing artifacts for the active arm."""
+    return arm_dir() / "batchfiles"
+
+
 def batch_requests_dir() -> Path:
-    return arm_dir() / "batch_requests"
+    return batchfiles_dir() / "requests"
 
 
 def batch_results_dir() -> Path:
-    return arm_dir() / "batch_results"
+    return batchfiles_dir() / "results"
 
 
 def batch_errors_dir() -> Path:
-    return arm_dir() / "batch_errors"
+    return batchfiles_dir() / "errors"
 
 
 def batch_outputs_dir() -> Path:
-    return arm_dir() / "batch_outputs"
+    return batchfiles_dir() / "parsed"
 
 
 def merged_csv() -> Path:
@@ -87,11 +92,11 @@ def merged_csv() -> Path:
 
 
 def state_file() -> Path:
-    return arm_dir() / "state.json"
+    return batchfiles_dir() / "state.json"
 
 
 def log_file() -> Path:
-    return arm_dir() / "run.log"
+    return batchfiles_dir() / "run.log"
 
 
 def baseline_csv_path() -> Path:

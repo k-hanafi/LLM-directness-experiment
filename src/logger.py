@@ -1,7 +1,7 @@
 """Structured logging with arm-aware file routing.
 
 Console handler is shared; the rotating file handler writes to
-outputs/arm_X/run.log so each arm has its own audit trail.
+outputs/arm_X/batchfiles/run.log so each arm has its own audit trail.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from logging.handlers import RotatingFileHandler
 
 from rich.logging import RichHandler
 
-from src.context import arm_dir, log_file
+from src.context import arm_dir, batchfiles_dir, log_file
 
 _CONFIGURED = False
 
@@ -26,6 +26,7 @@ def setup_logging(level: int = logging.INFO) -> None:
         return
 
     arm_dir().mkdir(parents=True, exist_ok=True)
+    batchfiles_dir().mkdir(parents=True, exist_ok=True)
 
     root = logging.getLogger()
     root.setLevel(level)

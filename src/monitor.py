@@ -36,7 +36,7 @@ from src.submitter import (
 
 logger = logging.getLogger(__name__)
 
-POLL_INTERVAL_SECONDS: int = 30
+POLL_INTERVAL_SECONDS: int = 5
 
 
 def _emit_billing_resume_help(state: PipelineState) -> None:
