@@ -26,20 +26,29 @@ We use a three-cell controlled design. All cells run through the same pipeline, 
 | **Arm B** (identity ablation) | anonymized   | masked       | real    | masked   | masked       |
 
 
-- **Arm A** strips the substantive text features (descriptions, keywords) while keeping the real company name. If the classifier's verdicts change relative to baseline, the classifier is direct — the descriptions were doing the work.
+- **Arm A** strips the substantive text features (descriptions, keywords) while keeping the real company name. If the classifier's verdicts change relative to baseline, the classifier is direct: the descriptions were doing the work.
 - **Arm B** additionally replaces the company name with a deterministic anonymous token. Comparing Arm A to Arm B isolates whether the real name alone carries signal via pretraining memorization, particularly for well-known companies.
 
 ## Statistical Methods
 
-Agreement between cells is measured using Cohen's kappa (chance-corrected agreement) rather than raw agreement rates, which can be misleadingly high for imbalanced classes. Paired hypothesis tests — McNemar's test for binary classification axes and Stuart-Maxwell's test for multi-class axes — assess whether observed disagreements are statistically significant. All metrics are stratified by a composite fame proxy that splits companies into quartiles from obscure to well-known, testing whether leakage concentrates among firms the model is most likely to have memorized.
+Agreement between cells is measured using Cohen's kappa (chance-corrected agreement) rather than raw agreement rates, which can be misleadingly high for imbalanced classes. Paired hypothesis tests include McNemar's test for binary classification axes and Stuart-Maxwell's test for multi-class axes. These assess whether observed disagreements are statistically significant. All metrics are stratified by a composite fame proxy that splits companies into quartiles from obscure to well-known, testing whether leakage concentrates among firms the model is most likely to have memorized.
+
+## Validating pretraining-only classifications
+
+The three-arm design above measures whether verdicts change when inputs are stripped or names are anonymized. That shows consistency, not which arm is correct. We therefore compare Baseline and Arm A to an external benchmark: the same taxonomy, but labels produced with live homepage evidence (Tavily crawl) on a subset of companies with usable website text. Companies outside that subset are excluded because their labels rely on Crunchbase text alone, the same basis as Baseline.
+
+We ask whether pretraining-only classifications (Arm A) track this benchmark as well as classifications from Crunchbase descriptions (Baseline).
+
+**Download Results:** [Ground-truth validation dashboard](data%20visualization/01_Presentation_Materials/ground_truth_validation_dashboard.html) .
 
 ## Repository Overview
 
-- `classify.py` — pipeline CLI for running the classification experiment across all three cells
-- `prompts/` — controlled prompt files, byte-identical except for the experimentally varied input format block
-- `scripts/` — analysis scripts (agreement metrics, fame proxy computation, interactive dashboard)
-- `src/` — pipeline internals (batch processing, name anonymization, state management)
-- `tests/` — automated tests enforcing experimental controls (e.g., prompt consistency across arms)
+- `classify.py`: pipeline CLI for running the classification experiment across all three cells
+- `prompts/`: controlled prompt files, byte-identical except for the experimentally varied input format block
+- `scripts/`: analysis scripts (agreement metrics, fame proxy computation, ground-truth validation)
+- `data visualization/01_Presentation_Materials/ground_truth_validation_dashboard.html`: interactive results for the pretraining validation study
+- `src/`: pipeline internals (batch processing, name anonymization, state management)
+- `tests/`: automated tests enforcing experimental controls (e.g., prompt consistency across arms)
 
 ## References
 
