@@ -25,6 +25,7 @@ outputs/
 # IDE / editor
 .vscode/
 .idea/
+.cursor/rules/
 
 # Build / packaging
 *.egg-info/
