@@ -30,3 +30,6 @@ outputs/
 *.egg-info/
 build/
 dist/
+
+# Dashboard builder cache (Plotly downloaded at build time)
+data visualization/02_Analysis_Code/.cache/
