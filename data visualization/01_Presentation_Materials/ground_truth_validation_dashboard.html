@@ -210,7 +210,7 @@ footer strong { color: var(--text2); }
       <li><a href="#confidence">Confidence Rent</a></li>
       <li><a href="#precision">Precision &amp; Recall</a></li>
       <li><a href="#fame">Fame Stratification</a></li>
-      <li><a href="#discrimination">Conf. Discrimination</a></li>
+      <li><a href="#discrimination">Eval Calibration</a></li>
     </ul>
   </div>
   <div class="nav-meta">
@@ -502,37 +502,53 @@ footer strong { color: var(--text2); }
 </section>
 
 <section id="discrimination">
-  <span class="section-label">05. Discrimination</span>
-  <h2>Confidence as a Reliability Signal Within Each Arm</h2>
+  <span class="section-label">05. Eval-Based Calibration</span>
+  <h2>Using Tavily Ground Truth as an Evals Dataset for Reliability Signal</h2>
   <p>
-    Confidence scales are not comparable across arms (each prompt induces a different rational epistemic state).
-    But within each arm, we can test whether higher self-reported confidence predicts higher accuracy against
-    ground truth.
+    Each classification run produces a self-reported confidence score (1&ndash;5).
+    By comparing predictions against the evidence-grounded Tavily labels, we can measure
+    the <strong>actual accuracy</strong> at each confidence tier&mdash;turning the ground truth
+    into an evals dataset that reveals how reliable each arm&rsquo;s confidence really is.
+    Solid lines show raw agreement (left axis); dashed lines show chance-corrected &kappa; (right axis).
+    Labels show n and % of sample at each tier.
   </p>
 
   <div class="chart-row single">
     <div class="chart-box">
       <div class="chart-box-header">
-        <div class="chart-box-title">Agreement Rate vs Confidence Tier (ai_native)</div>
-        <div class="chart-box-desc">Within-arm discrimination: does the model know when it knows? Baseline: broadly monotonic. Arm A: non-monotonic dip at tier 3, then recovery.</div>
+        <div class="chart-box-title">Stratified by Ground Truth (Tavily) Confidence</div>
+        <div class="chart-box-desc">When the evidence-grounded GT classifier is confident, do both arms agree with it?</div>
       </div>
-      <div class="chart-body"><div id="chart-conf-discrim" style="height:400px;"></div></div>
+      <div class="chart-body"><div id="chart-conf-discrim-tavily" style="height:460px;"></div></div>
+    </div>
+  </div>
+
+  <div class="chart-row single">
+    <div class="chart-box">
+      <div class="chart-box-header">
+        <div class="chart-box-title">Stratified by Baseline Confidence</div>
+        <div class="chart-box-desc">Does Baseline&rsquo;s self-reported confidence predict accuracy for itself&mdash;and does it cross-predict Arm&nbsp;A?</div>
+      </div>
+      <div class="chart-body"><div id="chart-conf-discrim-baseline" style="height:460px;"></div></div>
+    </div>
+  </div>
+
+  <div class="chart-row single">
+    <div class="chart-box">
+      <div class="chart-box-header">
+        <div class="chart-box-title">Stratified by Arm A Confidence</div>
+        <div class="chart-box-desc">Does Arm&nbsp;A&rsquo;s confidence predict its own accuracy, and does it cross-predict Baseline?</div>
+      </div>
+      <div class="chart-body"><div id="chart-conf-discrim-arm-a" style="height:460px;"></div></div>
     </div>
   </div>
 
   <div class="insight insight-blue">
     <p>
-      <strong>Arm A&rsquo;s high-confidence tail is remarkably accurate.</strong>
-      Only 518 companies (~2.4%) receive conf&nbsp;&ge;&nbsp;4 from Arm&nbsp;A.
-      Among conf&nbsp;=&nbsp;4 predictions: 92.8% agreement.
-      Among conf&nbsp;=&nbsp;5: 100.0% agreement.
-      When the model explicitly claims to recognize a company from memory, it is correct.
-    </p>
-    <p>
-      The <strong>conf&nbsp;=&nbsp;3 dip</strong> (64.1%)
-      is the telling case: these are companies the model partially recalls but cannot confidently classify.
-      Partial memorization is worse than no memorization. The model produces a confident-enough guess
-      that bypasses the conservative default, but that guess is unreliable.
+      <strong>Cross-stratification reveals transferability of confidence.</strong>
+      When one source is highly confident, examining whether the <em>other</em> arm also agrees with
+      ground truth on those same companies tells us whether confidence captures genuine case difficulty
+      or arm-specific noise.
     </p>
   </div>
 </section>
@@ -550,7 +566,7 @@ footer strong { color: var(--text2); }
 </footer>
 
 <script>
-const D = {"n_total": 21965, "accuracy_gap_pp": 8.1, "baseline_agreement": 91.1, "arm_a_agreement": 83.0, "baseline_kappa": 0.5764, "arm_a_kappa": 0.3229, "agreement_by_axis": {"axes": ["ai_native", "subclass", "rad_score", "cohort"], "labels": ["AI-Native (binary)", "Subclass (10-class)", "RAD Score (4-class)", "Cohort (binary)"], "baseline": [91.1, 66.2, 88.0, 75.8], "arm_a": [83.0, 59.1, 79.9, 81.8], "baseline_kappa": [0.576, 0.192, 0.448, 0.368], "arm_a_kappa": [0.323, 0.082, 0.232, 0.079]}, "conf_sources": {"baseline": {"mean": 3.387, "median": 4.0, "dist": [8.2, 22.8, 13.5, 33.3, 22.3]}, "arm_a": {"mean": 1.517, "median": 1.0, "dist": [55.7, 39.7, 2.2, 1.8, 0.5]}, "tavily": {"mean": 4.213, "median": 4.0, "dist": [2.4, 6.3, 7.8, 34.8, 48.8]}}, "wilcoxon": {"baseline_vs_tavily": {"mean_delta": 0.826, "p": 0.0}, "arm_a_vs_tavily": {"mean_delta": 2.696, "p": 0.0}}, "base_rate": {"baseline": {"ai_native=1": {"agreement": 47.0, "n": 3421, "interpretation": "recall (sensitivity)"}, "ai_native=0": {"agreement": 99.2, "n": 18544, "interpretation": "specificity"}, "arm_predicts_1": {"agreement": 91.5, "n": 1759, "interpretation": "precision (PPV)"}}, "arm_a": {"ai_native=1": {"agreement": 39.9, "n": 3421, "interpretation": "recall (sensitivity)"}, "ai_native=0": {"agreement": 90.9, "n": 18544, "interpretation": "specificity"}, "arm_predicts_1": {"agreement": 44.8, "n": 3045, "interpretation": "precision (PPV)"}}}, "fame": {"quartiles": ["Q1", "Q2", "Q3", "Q4"], "baseline_agreement": [95.4, 95.0, 90.8, 85.7], "arm_a_agreement": [89.3, 89.6, 83.4, 73.8], "baseline_kappa": [0.566, 0.559, 0.553, 0.569], "arm_a_kappa": [0.243, 0.282, 0.317, 0.298]}, "tier": {"baseline": {"ai_native": {"1": 88.8, "2": 83.2, "3": 82.9, "4": 94.8, "5": 99.3}, "subclass": {"1": 81.0, "2": 75.3, "3": 64.1, "4": 70.6, "5": 46.0}, "rad_score": {"1": 88.7, "2": 81.9, "3": 71.9, "4": 91.2, "5": 98.9}, "cohort": {"1": 73.8, "2": 75.6, "3": 83.3, "4": 75.8, "5": 72.3}}, "arm_a": {"ai_native": {"1": 85.0, "2": 80.6, "3": 64.1, "4": 92.8, "5": 100.0}, "subclass": {"1": 68.0, "2": 51.0, "3": 26.3, "4": 18.9, "5": 9.5}, "rad_score": {"1": 84.1, "2": 75.3, "3": 45.9, "4": 87.3, "5": 98.3}, "cohort": {"1": 83.7, "2": 79.9, "3": 68.0, "4": 84.1, "5": 88.8}}}};
+const D = {"n_total": 21965, "accuracy_gap_pp": 8.1, "baseline_agreement": 91.1, "arm_a_agreement": 83.0, "baseline_kappa": 0.5764, "arm_a_kappa": 0.3229, "agreement_by_axis": {"axes": ["ai_native", "subclass", "rad_score", "cohort"], "labels": ["AI-Native (binary)", "Subclass (10-class)", "RAD Score (4-class)", "Cohort (binary)"], "baseline": [91.1, 66.2, 88.0, 75.8], "arm_a": [83.0, 59.1, 79.9, 81.8], "baseline_kappa": [0.576, 0.192, 0.448, 0.368], "arm_a_kappa": [0.323, 0.082, 0.232, 0.079]}, "conf_sources": {"baseline": {"mean": 3.387, "median": 4.0, "dist": [8.2, 22.8, 13.5, 33.3, 22.3]}, "arm_a": {"mean": 1.517, "median": 1.0, "dist": [55.7, 39.7, 2.2, 1.8, 0.5]}, "tavily": {"mean": 4.213, "median": 4.0, "dist": [2.4, 6.3, 7.8, 34.8, 48.8]}}, "wilcoxon": {"baseline_vs_tavily": {"mean_delta": 0.826, "p": 0.0}, "arm_a_vs_tavily": {"mean_delta": 2.696, "p": 0.0}}, "base_rate": {"baseline": {"ai_native=1": {"agreement": 47.0, "n": 3421, "interpretation": "recall (sensitivity)"}, "ai_native=0": {"agreement": 99.2, "n": 18544, "interpretation": "specificity"}, "arm_predicts_1": {"agreement": 91.5, "n": 1759, "interpretation": "precision (PPV)"}}, "arm_a": {"ai_native=1": {"agreement": 39.9, "n": 3421, "interpretation": "recall (sensitivity)"}, "ai_native=0": {"agreement": 90.9, "n": 18544, "interpretation": "specificity"}, "arm_predicts_1": {"agreement": 44.8, "n": 3045, "interpretation": "precision (PPV)"}}}, "fame": {"quartiles": ["Q1", "Q2", "Q3", "Q4"], "baseline_agreement": [95.4, 95.0, 90.8, 85.7], "arm_a_agreement": [89.3, 89.6, 83.4, 73.8], "baseline_kappa": [0.566, 0.559, 0.553, 0.569], "arm_a_kappa": [0.243, 0.282, 0.317, 0.298]}, "tier_by_source": {"baseline": {"baseline": {"ai_native": {"1": 88.8, "2": 83.2, "3": 82.9, "4": 94.8, "5": 99.3}, "subclass": {"1": 81.0, "2": 75.3, "3": 64.1, "4": 70.6, "5": 46.0}, "rad_score": {"1": 88.7, "2": 81.9, "3": 71.9, "4": 91.2, "5": 98.9}, "cohort": {"1": 73.8, "2": 75.6, "3": 83.3, "4": 75.8, "5": 72.3}}, "arm_a": {"ai_native": {"1": 84.1, "2": 75.7, "3": 66.8, "4": 85.6, "5": 95.9}, "subclass": {"1": 58.7, "2": 59.3, "3": 49.0, "4": 65.2, "5": 56.1}, "rad_score": {"1": 81.8, "2": 72.9, "3": 58.5, "4": 82.4, "5": 95.7}, "cohort": {"1": 79.4, "2": 77.7, "3": 73.6, "4": 83.1, "5": 90.1}}}, "arm_a": {"baseline": {"ai_native": {"1": 91.4, "2": 90.6, "3": 83.1, "4": 96.8, "5": 99.1}, "subclass": {"1": 68.2, "2": 65.5, "3": 56.5, "4": 39.1, "5": 30.2}, "rad_score": {"1": 89.0, "2": 87.2, "3": 72.0, "4": 92.5, "5": 97.4}, "cohort": {"1": 76.9, "2": 74.9, "3": 80.8, "4": 62.9, "5": 57.8}}, "arm_a": {"ai_native": {"1": 85.0, "2": 80.6, "3": 64.1, "4": 92.8, "5": 100.0}, "subclass": {"1": 68.0, "2": 51.0, "3": 26.3, "4": 18.9, "5": 9.5}, "rad_score": {"1": 84.1, "2": 75.3, "3": 45.9, "4": 87.3, "5": 98.3}, "cohort": {"1": 83.7, "2": 79.9, "3": 68.0, "4": 84.1, "5": 88.8}}}, "tavily": {"baseline": {"ai_native": {"1": 96.0, "2": 89.1, "3": 61.9, "4": 85.5, "5": 99.7}, "subclass": {"1": 71.7, "2": 73.6, "3": 49.6, "4": 71.1, "5": 64.1}, "rad_score": {"1": 95.6, "2": 87.4, "3": 55.2, "4": 79.2, "5": 99.2}, "cohort": {"1": 85.8, "2": 82.0, "3": 84.1, "4": 81.3, "5": 69.3}}, "arm_a": {"ai_native": {"1": 86.2, "2": 76.4, "3": 55.5, "4": 73.1, "5": 95.2}, "subclass": {"1": 64.6, "2": 62.1, "3": 40.1, "4": 56.1, "5": 63.6}, "rad_score": {"1": 86.4, "2": 75.5, "3": 46.5, "4": 66.9, "5": 94.7}, "cohort": {"1": 83.0, "2": 78.2, "3": 72.9, "4": 76.6, "5": 87.4}}}}, "kappa_by_source": {"baseline": {"baseline": {"ai_native": {"1": 0.03, "2": 0.2368, "3": 0.6243, "4": 0.7433, "5": 0.7025}, "subclass": {"1": -0.0127, "2": 0.143, "3": 0.4036, "4": 0.2767, "5": 0.0226}, "rad_score": {"1": 0.0196, "2": 0.1909, "3": 0.4543, "4": 0.578, "5": 0.5511}, "cohort": {"1": 0.3852, "2": 0.4304, "3": 0.5824, "4": 0.3284, "5": 0.1705}}, "arm_a": {"ai_native": {"1": 0.2478, "2": 0.1826, "3": 0.2632, "4": 0.3904, "5": 0.2597}, "subclass": {"1": 0.0449, "2": 0.0729, "3": 0.1225, "4": 0.1279, "5": 0.0178}, "rad_score": {"1": 0.1664, "2": 0.1362, "3": 0.1797, "4": 0.2811, "5": 0.2069}, "cohort": {"1": 0.0452, "2": 0.0427, "3": 0.09, "4": 0.0891, "5": 0.0432}}}, "arm_a": {"baseline": {"ai_native": {"1": 0.523, "2": 0.6082, "3": 0.6006, "4": 0.8476, "5": 0.9185}, "subclass": {"1": 0.1646, "2": 0.2179, "3": 0.3003, "4": 0.1431, "5": 0.0725}, "rad_score": {"1": 0.4011, "2": 0.4813, "3": 0.4085, "4": 0.6613, "5": 0.7603}, "cohort": {"1": 0.3712, "2": 0.3697, "3": 0.5082, "4": 0.2059, "5": 0.1288}}, "arm_a": {"ai_native": {"1": 0.1236, "2": 0.4043, "3": 0.3469, "4": 0.738, "5": 1.0}, "subclass": {"1": 0.0036, "2": 0.1151, "3": 0.1332, "4": 0.1037, "5": 0.0568}, "rad_score": {"1": 0.0797, "2": 0.2913, "3": 0.2182, "4": 0.5628, "5": 0.8507}, "cohort": {"1": 0.0313, "2": 0.1157, "3": 0.0766, "4": 0.2149, "5": -0.059}}}, "tavily": {"baseline": {"ai_native": {"1": 0.2142, "2": 0.3524, "3": 0.2586, "4": 0.5912, "5": 0.8972}, "subclass": {"1": 0.03, "2": 0.1362, "3": 0.195, "4": 0.3772, "5": 0.0535}, "rad_score": {"1": 0.1108, "2": 0.2717, "3": 0.2027, "4": 0.4512, "5": 0.7122}, "cohort": {"1": 0.4523, "2": 0.5237, "3": 0.5718, "4": 0.5177, "5": 0.2151}}, "arm_a": {"ai_native": {"1": -0.0111, "2": 0.06, "3": 0.128, "4": 0.2981, "5": 0.2815}, "subclass": {"1": 0.001, "2": 0.0192, "3": 0.0854, "4": 0.1391, "5": 0.0286}, "rad_score": {"1": -0.0056, "2": 0.0596, "3": 0.0817, "4": 0.21, "5": 0.2176}, "cohort": {"1": -0.0075, "2": 0.0583, "3": -0.0077, "4": 0.098, "5": 0.0444}}}}, "n_by_source": {"baseline": {"baseline": {"ai_native": {"1": 1794, "2": 4999, "3": 2970, "4": 7307, "5": 4895}, "subclass": {"1": 1794, "2": 4999, "3": 2970, "4": 7307, "5": 4895}, "rad_score": {"1": 1794, "2": 4999, "3": 2970, "4": 7307, "5": 4895}, "cohort": {"1": 1794, "2": 4999, "3": 2970, "4": 7307, "5": 4895}}, "arm_a": {"ai_native": {"1": 1794, "2": 4999, "3": 2970, "4": 7307, "5": 4895}, "subclass": {"1": 1794, "2": 4999, "3": 2970, "4": 7307, "5": 4895}, "rad_score": {"1": 1794, "2": 4999, "3": 2970, "4": 7307, "5": 4895}, "cohort": {"1": 1794, "2": 4999, "3": 2970, "4": 7307, "5": 4895}}}, "arm_a": {"baseline": {"ai_native": {"1": 12241, "2": 8716, "3": 490, "4": 402, "5": 116}, "subclass": {"1": 12241, "2": 8716, "3": 490, "4": 402, "5": 116}, "rad_score": {"1": 12241, "2": 8716, "3": 490, "4": 402, "5": 116}, "cohort": {"1": 12241, "2": 8716, "3": 490, "4": 402, "5": 116}}, "arm_a": {"ai_native": {"1": 12241, "2": 8716, "3": 490, "4": 402, "5": 116}, "subclass": {"1": 12241, "2": 8716, "3": 490, "4": 402, "5": 116}, "rad_score": {"1": 12241, "2": 8716, "3": 490, "4": 402, "5": 116}, "cohort": {"1": 12241, "2": 8716, "3": 490, "4": 402, "5": 116}}}, "tavily": {"baseline": {"ai_native": {"1": 522, "2": 1377, "3": 1715, "4": 7633, "5": 10718}, "subclass": {"1": 522, "2": 1377, "3": 1715, "4": 7633, "5": 10718}, "rad_score": {"1": 522, "2": 1377, "3": 1715, "4": 7633, "5": 10718}, "cohort": {"1": 522, "2": 1377, "3": 1715, "4": 7633, "5": 10718}}, "arm_a": {"ai_native": {"1": 522, "2": 1377, "3": 1715, "4": 7633, "5": 10718}, "subclass": {"1": 522, "2": 1377, "3": 1715, "4": 7633, "5": 10718}, "rad_score": {"1": 522, "2": 1377, "3": 1715, "4": 7633, "5": 10718}, "cohort": {"1": 522, "2": 1377, "3": 1715, "4": 7633, "5": 10718}}}}};
 
 const COLORS = {
   baseline: '#4f46e5',
@@ -746,47 +762,71 @@ function renderFameKappa() {
   }), plotlyConfig);
 }
 
-function renderConfDiscrim() {
+function renderConfDiscrimFor(confSource, divId, xLabel) {
   const tiers = [1, 2, 3, 4, 5];
-  const bVals = tiers.map(t => D.tier.baseline.ai_native[t] || null);
-  const aVals = tiers.map(t => D.tier.arm_a.ai_native[t] || null);
-  Plotly.newPlot('chart-conf-discrim', [
+  const nTotal = D.n_total;
+  const src = D.tier_by_source[confSource] || {};
+  const srcK = D.kappa_by_source[confSource] || {};
+  const srcN = D.n_by_source[confSource] || {};
+
+  const get = (obj, arm) => tiers.map(t => ((obj[arm] || {}).ai_native || {})[t] ?? null);
+  const bVals = get(src, 'baseline');
+  const aVals = get(src, 'arm_a');
+  const bKappa = get(srcK, 'baseline');
+  const aKappa = get(srcK, 'arm_a');
+  const bN = get(srcN, 'baseline');
+  const aN = get(srcN, 'arm_a');
+
+  const nLabel = (n) => n != null ? 'n=' + n.toLocaleString() + ' (' + (n / nTotal * 100).toFixed(1) + '%)' : '';
+
+  Plotly.newPlot(divId, [
     {
-      type: 'scatter', mode: 'lines+markers', name: 'Baseline',
+      type: 'scatter', mode: 'lines+markers+text', name: 'Baseline (agreement)',
       x: tiers, y: bVals,
       line: {color: COLORS.baseline, width: 2.5},
       marker: {size: 9, color: COLORS.baseline},
-      text: bVals.map(v => v != null ? v + '%' : ''),
+      text: bN.map(n => nLabel(n)),
       textposition: 'top center',
-      textfont: {family: 'ui-monospace, monospace', size: 10, color: COLORS.baseline},
+      textfont: {family: 'ui-monospace, monospace', size: 9, color: COLORS.baseline},
       hovertemplate: 'Baseline conf=%{x}: %{y}% agreement<extra></extra>',
     },
     {
-      type: 'scatter', mode: 'lines+markers', name: 'Arm A',
+      type: 'scatter', mode: 'lines+markers', name: 'Arm A (agreement)',
       x: tiers, y: aVals,
       line: {color: COLORS.arm_a, width: 2.5},
       marker: {size: 9, color: COLORS.arm_a},
-      text: aVals.map(v => v != null ? v + '%' : ''),
-      textposition: 'bottom center',
-      textfont: {family: 'ui-monospace, monospace', size: 10, color: COLORS.arm_a},
       hovertemplate: 'Arm A conf=%{x}: %{y}% agreement<extra></extra>',
     },
+    {
+      type: 'scatter', mode: 'lines+markers', name: 'Baseline (κ)',
+      x: tiers, y: bKappa, yaxis: 'y2',
+      line: {color: COLORS.baseline, width: 2, dash: 'dash'},
+      marker: {size: 7, symbol: 'diamond', color: COLORS.baseline},
+      hovertemplate: 'Baseline conf=%{x}: κ = %{y:.3f}<extra></extra>',
+    },
+    {
+      type: 'scatter', mode: 'lines+markers', name: 'Arm A (κ)',
+      x: tiers, y: aKappa, yaxis: 'y2',
+      line: {color: COLORS.arm_a, width: 2, dash: 'dash'},
+      marker: {size: 7, symbol: 'diamond', color: COLORS.arm_a},
+      hovertemplate: 'Arm A conf=%{x}: κ = %{y:.3f}<extra></extra>',
+    },
   ], baseLayout({
-    yaxis: {title: {text: 'Agreement with Ground Truth (%)', font: titleFont}, range: [50, 105]},
+    yaxis: {title: {text: 'Agreement with Ground Truth (%)', font: titleFont}, range: [0, 105]},
+    yaxis2: {
+      title: {text: "Cohen's κ", font: titleFont},
+      overlaying: 'y', side: 'right',
+      range: [-0.15, 1.05],
+      gridcolor: 'transparent',
+      tickfont: axisFont,
+    },
     xaxis: {
-      title: {text: 'Confidence Tier (self-reported, 1–5)', font: titleFont},
+      title: {text: xLabel, font: titleFont},
       tickfont: {family: 'ui-monospace, monospace', size: 12},
       dtick: 1,
     },
-    margin: {l: 70, r: 24, t: 30, b: 60},
-    shapes: [{
-      type: 'rect', x0: 3.5, x1: 5.5, y0: 50, y1: 105,
-      fillcolor: 'rgba(5,150,105,0.05)', line: {width: 0},
-    }],
-    annotations: [{
-      x: 4.5, y: 104, text: 'high-conf tail (Arm A)', showarrow: false,
-      font: {size: 9, color: '#059669', family: 'ui-monospace, monospace'},
-    }],
+    margin: {l: 70, r: 70, t: 30, b: 60},
+    legend: {orientation: 'h', y: 1.15, x: 0.5, xanchor: 'center', font: {size: 10}},
   }), plotlyConfig);
 }
 
@@ -796,7 +836,9 @@ renderConfMeans();
 renderConfDist();
 renderFameAgreement();
 renderFameKappa();
-renderConfDiscrim();
+renderConfDiscrimFor('tavily',   'chart-conf-discrim-tavily',   'Tavily GT Confidence Tier (1–5)');
+renderConfDiscrimFor('baseline', 'chart-conf-discrim-baseline', 'Baseline Confidence Tier (1–5)');
+renderConfDiscrimFor('arm_a',    'chart-conf-discrim-arm-a',    'Arm A Confidence Tier (1–5)');
 
 const observer = new IntersectionObserver((entries) => {
   entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });

@@ -128,14 +128,23 @@ def load_data() -> dict:
         fame_data["baseline_kappa"].append(round(float(b["kappa"].iloc[0]), 3) if len(b) else None)
         fame_data["arm_a_kappa"].append(round(float(a["kappa"].iloc[0]), 3) if len(a) else None)
 
-    tier_data = {"baseline": {}, "arm_a": {}}
+    # Build cross-stratified tier data keyed by confidence source
+    tier_by_src = {}
+    kappa_by_src = {}
+    n_by_src = {}
     for _, row in tier_df.iterrows():
+        cs = row.get("conf_source", row["arm"])  # backward compat
         arm = row["arm"]
         axis = row["axis"]
         tier = int(row["conf_tier"])
-        if axis not in tier_data[arm]:
-            tier_data[arm][axis] = {}
-        tier_data[arm][axis][tier] = round(float(row["agreement"]) * 100, 1)
+        tier_by_src.setdefault(cs, {}).setdefault(arm, {}).setdefault(axis, {})[tier] = (
+            round(float(row["agreement"]) * 100, 1)
+        )
+        if "kappa" in row and pd.notna(row["kappa"]):
+            kappa_by_src.setdefault(cs, {}).setdefault(arm, {}).setdefault(axis, {})[tier] = (
+                round(float(row["kappa"]), 4)
+            )
+        n_by_src.setdefault(cs, {}).setdefault(arm, {}).setdefault(axis, {})[tier] = int(row["n"])
 
     return {
         "n_total": metrics["n_total"],
@@ -153,7 +162,9 @@ def load_data() -> dict:
         "wilcoxon": wilcoxon,
         "base_rate": base_rate,
         "fame": fame_data,
-        "tier": tier_data,
+        "tier_by_source": tier_by_src,
+        "kappa_by_source": kappa_by_src,
+        "n_by_source": n_by_src,
     }
 
 
@@ -367,7 +378,7 @@ footer strong {{ color: var(--text2); }}
       <li><a href="#confidence">Confidence Rent</a></li>
       <li><a href="#precision">Precision &amp; Recall</a></li>
       <li><a href="#fame">Fame Stratification</a></li>
-      <li><a href="#discrimination">Conf. Discrimination</a></li>
+      <li><a href="#discrimination">Eval Calibration</a></li>
     </ul>
   </div>
   <div class="nav-meta">
@@ -659,37 +670,53 @@ footer strong {{ color: var(--text2); }}
 </section>
 
 <section id="discrimination">
-  <span class="section-label">05. Discrimination</span>
-  <h2>Confidence as a Reliability Signal Within Each Arm</h2>
+  <span class="section-label">05. Eval-Based Calibration</span>
+  <h2>Using Tavily Ground Truth as an Evals Dataset for Reliability Signal</h2>
   <p>
-    Confidence scales are not comparable across arms (each prompt induces a different rational epistemic state).
-    But within each arm, we can test whether higher self-reported confidence predicts higher accuracy against
-    ground truth.
+    Each classification run produces a self-reported confidence score (1&ndash;5).
+    By comparing predictions against the evidence-grounded Tavily labels, we can measure
+    the <strong>actual accuracy</strong> at each confidence tier&mdash;turning the ground truth
+    into an evals dataset that reveals how reliable each arm&rsquo;s confidence really is.
+    Solid lines show raw agreement (left axis); dashed lines show chance-corrected &kappa; (right axis).
+    Labels show n and % of sample at each tier.
   </p>
 
   <div class="chart-row single">
     <div class="chart-box">
       <div class="chart-box-header">
-        <div class="chart-box-title">Agreement Rate vs Confidence Tier (ai_native)</div>
-        <div class="chart-box-desc">Within-arm discrimination: does the model know when it knows? Baseline: broadly monotonic. Arm A: non-monotonic dip at tier 3, then recovery.</div>
+        <div class="chart-box-title">Stratified by Ground Truth (Tavily) Confidence</div>
+        <div class="chart-box-desc">When the evidence-grounded GT classifier is confident, do both arms agree with it?</div>
       </div>
-      <div class="chart-body"><div id="chart-conf-discrim" style="height:400px;"></div></div>
+      <div class="chart-body"><div id="chart-conf-discrim-tavily" style="height:460px;"></div></div>
+    </div>
+  </div>
+
+  <div class="chart-row single">
+    <div class="chart-box">
+      <div class="chart-box-header">
+        <div class="chart-box-title">Stratified by Baseline Confidence</div>
+        <div class="chart-box-desc">Does Baseline&rsquo;s self-reported confidence predict accuracy for itself&mdash;and does it cross-predict Arm&nbsp;A?</div>
+      </div>
+      <div class="chart-body"><div id="chart-conf-discrim-baseline" style="height:460px;"></div></div>
+    </div>
+  </div>
+
+  <div class="chart-row single">
+    <div class="chart-box">
+      <div class="chart-box-header">
+        <div class="chart-box-title">Stratified by Arm A Confidence</div>
+        <div class="chart-box-desc">Does Arm&nbsp;A&rsquo;s confidence predict its own accuracy, and does it cross-predict Baseline?</div>
+      </div>
+      <div class="chart-body"><div id="chart-conf-discrim-arm-a" style="height:460px;"></div></div>
     </div>
   </div>
 
   <div class="insight insight-blue">
     <p>
-      <strong>Arm A&rsquo;s high-confidence tail is remarkably accurate.</strong>
-      Only 518 companies (~2.4%) receive conf&nbsp;&ge;&nbsp;4 from Arm&nbsp;A.
-      Among conf&nbsp;=&nbsp;4 predictions: {d["tier"]["arm_a"].get("ai_native", {}).get(4, "92.8")}% agreement.
-      Among conf&nbsp;=&nbsp;5: {d["tier"]["arm_a"].get("ai_native", {}).get(5, "100.0")}% agreement.
-      When the model explicitly claims to recognize a company from memory, it is correct.
-    </p>
-    <p>
-      The <strong>conf&nbsp;=&nbsp;3 dip</strong> ({d["tier"]["arm_a"].get("ai_native", {}).get(3, "64.1")}%)
-      is the telling case: these are companies the model partially recalls but cannot confidently classify.
-      Partial memorization is worse than no memorization. The model produces a confident-enough guess
-      that bypasses the conservative default, but that guess is unreliable.
+      <strong>Cross-stratification reveals transferability of confidence.</strong>
+      When one source is highly confident, examining whether the <em>other</em> arm also agrees with
+      ground truth on those same companies tells us whether confidence captures genuine case difficulty
+      or arm-specific noise.
     </p>
   </div>
 </section>
@@ -903,47 +930,71 @@ function renderFameKappa() {{
   }}), plotlyConfig);
 }}
 
-function renderConfDiscrim() {{
+function renderConfDiscrimFor(confSource, divId, xLabel) {{
   const tiers = [1, 2, 3, 4, 5];
-  const bVals = tiers.map(t => D.tier.baseline.ai_native[t] || null);
-  const aVals = tiers.map(t => D.tier.arm_a.ai_native[t] || null);
-  Plotly.newPlot('chart-conf-discrim', [
+  const nTotal = D.n_total;
+  const src = D.tier_by_source[confSource] || {{}};
+  const srcK = D.kappa_by_source[confSource] || {{}};
+  const srcN = D.n_by_source[confSource] || {{}};
+
+  const get = (obj, arm) => tiers.map(t => ((obj[arm] || {{}}).ai_native || {{}})[t] ?? null);
+  const bVals = get(src, 'baseline');
+  const aVals = get(src, 'arm_a');
+  const bKappa = get(srcK, 'baseline');
+  const aKappa = get(srcK, 'arm_a');
+  const bN = get(srcN, 'baseline');
+  const aN = get(srcN, 'arm_a');
+
+  const nLabel = (n) => n != null ? 'n=' + n.toLocaleString() + ' (' + (n / nTotal * 100).toFixed(1) + '%)' : '';
+
+  Plotly.newPlot(divId, [
     {{
-      type: 'scatter', mode: 'lines+markers', name: 'Baseline',
+      type: 'scatter', mode: 'lines+markers+text', name: 'Baseline (agreement)',
       x: tiers, y: bVals,
       line: {{color: COLORS.baseline, width: 2.5}},
       marker: {{size: 9, color: COLORS.baseline}},
-      text: bVals.map(v => v != null ? v + '%' : ''),
+      text: bN.map(n => nLabel(n)),
       textposition: 'top center',
-      textfont: {{family: 'ui-monospace, monospace', size: 10, color: COLORS.baseline}},
+      textfont: {{family: 'ui-monospace, monospace', size: 9, color: COLORS.baseline}},
       hovertemplate: 'Baseline conf=%{{x}}: %{{y}}% agreement<extra></extra>',
     }},
     {{
-      type: 'scatter', mode: 'lines+markers', name: 'Arm A',
+      type: 'scatter', mode: 'lines+markers', name: 'Arm A (agreement)',
       x: tiers, y: aVals,
       line: {{color: COLORS.arm_a, width: 2.5}},
       marker: {{size: 9, color: COLORS.arm_a}},
-      text: aVals.map(v => v != null ? v + '%' : ''),
-      textposition: 'bottom center',
-      textfont: {{family: 'ui-monospace, monospace', size: 10, color: COLORS.arm_a}},
       hovertemplate: 'Arm A conf=%{{x}}: %{{y}}% agreement<extra></extra>',
     }},
+    {{
+      type: 'scatter', mode: 'lines+markers', name: 'Baseline (\u03ba)',
+      x: tiers, y: bKappa, yaxis: 'y2',
+      line: {{color: COLORS.baseline, width: 2, dash: 'dash'}},
+      marker: {{size: 7, symbol: 'diamond', color: COLORS.baseline}},
+      hovertemplate: 'Baseline conf=%{{x}}: \u03ba = %{{y:.3f}}<extra></extra>',
+    }},
+    {{
+      type: 'scatter', mode: 'lines+markers', name: 'Arm A (\u03ba)',
+      x: tiers, y: aKappa, yaxis: 'y2',
+      line: {{color: COLORS.arm_a, width: 2, dash: 'dash'}},
+      marker: {{size: 7, symbol: 'diamond', color: COLORS.arm_a}},
+      hovertemplate: 'Arm A conf=%{{x}}: \u03ba = %{{y:.3f}}<extra></extra>',
+    }},
   ], baseLayout({{
-    yaxis: {{title: {{text: 'Agreement with Ground Truth (%)', font: titleFont}}, range: [50, 105]}},
+    yaxis: {{title: {{text: 'Agreement with Ground Truth (%)', font: titleFont}}, range: [0, 105]}},
+    yaxis2: {{
+      title: {{text: "Cohen's \u03ba", font: titleFont}},
+      overlaying: 'y', side: 'right',
+      range: [-0.15, 1.05],
+      gridcolor: 'transparent',
+      tickfont: axisFont,
+    }},
     xaxis: {{
-      title: {{text: 'Confidence Tier (self-reported, 1–5)', font: titleFont}},
+      title: {{text: xLabel, font: titleFont}},
       tickfont: {{family: 'ui-monospace, monospace', size: 12}},
       dtick: 1,
     }},
-    margin: {{l: 70, r: 24, t: 30, b: 60}},
-    shapes: [{{
-      type: 'rect', x0: 3.5, x1: 5.5, y0: 50, y1: 105,
-      fillcolor: 'rgba(5,150,105,0.05)', line: {{width: 0}},
-    }}],
-    annotations: [{{
-      x: 4.5, y: 104, text: 'high-conf tail (Arm A)', showarrow: false,
-      font: {{size: 9, color: '#059669', family: 'ui-monospace, monospace'}},
-    }}],
+    margin: {{l: 70, r: 70, t: 30, b: 60}},
+    legend: {{orientation: 'h', y: 1.15, x: 0.5, xanchor: 'center', font: {{size: 10}}}},
   }}), plotlyConfig);
 }}
 
@@ -953,7 +1004,9 @@ renderConfMeans();
 renderConfDist();
 renderFameAgreement();
 renderFameKappa();
-renderConfDiscrim();
+renderConfDiscrimFor('tavily',   'chart-conf-discrim-tavily',   'Tavily GT Confidence Tier (1\u20135)');
+renderConfDiscrimFor('baseline', 'chart-conf-discrim-baseline', 'Baseline Confidence Tier (1\u20135)');
+renderConfDiscrimFor('arm_a',    'chart-conf-discrim-arm-a',    'Arm A Confidence Tier (1\u20135)');
 
 const observer = new IntersectionObserver((entries) => {{
   entries.forEach(e => {{ if (e.isIntersecting) e.target.classList.add('visible'); }});
