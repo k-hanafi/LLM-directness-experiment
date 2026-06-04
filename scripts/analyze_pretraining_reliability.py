@@ -233,31 +233,48 @@ def _confidence_comparison(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _agreement_by_conf_tier(df: pd.DataFrame) -> pd.DataFrame:
-    """Per-tier agreement curve for both arms against tavily GT."""
+    """Per-tier agreement curves: cross-stratified by every confidence source.
+
+    For each confidence source (baseline, arm_a, tavily) we subset the data by
+    that source's confidence tier, then measure how each arm (baseline, arm_a)
+    agrees with the tavily ground truth on that subset.
+    """
     rows = []
-    for arm in ("baseline", "arm_a"):
-        conf_col = f"conf_classification__{arm}"
+    for conf_source in ("baseline", "arm_a", "tavily"):
+        conf_col = f"conf_classification__{conf_source}"
+        if conf_col not in df.columns:
+            continue
         for conf_val in range(1, 6):
             sub = df[df[conf_col] == conf_val]
             if len(sub) == 0:
                 continue
-            n = len(sub)
-            for axis in AXES:
-                arm_col = f"{axis}__{arm}"
-                gt_col = f"{axis}__tavily"
-                if arm_col not in sub.columns or gt_col not in sub.columns:
-                    continue
-                mask = sub[arm_col].notna() & sub[gt_col].notna()
-                if mask.sum() == 0:
-                    continue
-                agree = float((sub.loc[mask, arm_col] == sub.loc[mask, gt_col]).mean())
-                rows.append({
-                    "arm": arm,
-                    "conf_tier": conf_val,
-                    "axis": axis,
-                    "n": int(mask.sum()),
-                    "agreement": round(agree, 4),
-                })
+            for arm in ("baseline", "arm_a"):
+                for axis in AXES:
+                    arm_col = f"{axis}__{arm}"
+                    gt_col = f"{axis}__tavily"
+                    if arm_col not in sub.columns or gt_col not in sub.columns:
+                        continue
+                    mask = sub[arm_col].notna() & sub[gt_col].notna()
+                    if mask.sum() == 0:
+                        continue
+                    agree = float((sub.loc[mask, arm_col] == sub.loc[mask, gt_col]).mean())
+                    info = AXES[axis]
+                    try:
+                        kap = float(cohen_kappa_score(
+                            sub.loc[mask, arm_col], sub.loc[mask, gt_col],
+                            labels=info["labels"],
+                        ))
+                    except Exception:
+                        kap = float("nan")
+                    rows.append({
+                        "conf_source": conf_source,
+                        "arm": arm,
+                        "conf_tier": conf_val,
+                        "axis": axis,
+                        "n": int(mask.sum()),
+                        "agreement": round(agree, 4),
+                        "kappa": round(kap, 4) if not np.isnan(kap) else None,
+                    })
     return pd.DataFrame(rows)
 
 
