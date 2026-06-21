@@ -1,0 +1,7 @@
+# Hard block: secrets only (never send to AI context)
+keys/
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key

@@ -1,0 +1,16 @@
+# Indexing only: agents can still read these via scripts, terminal, or explicit asks.
+
+# Pipeline artifacts (~72GB batch JSONL, classified CSVs)
+outputs/
+**/batchfiles/
+**/*.jsonl
+
+# Large datasets (CSV indexing is off by default; listed for clarity)
+data/
+
+# Python / OS noise
+**/__pycache__/
+**/.pytest_cache/
+**/.venv/
+**/venv/
+.DS_Store
